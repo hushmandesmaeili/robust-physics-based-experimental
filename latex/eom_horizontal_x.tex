@@ -1,0 +1,17 @@
+\documentclass{article}
+\usepackage{amsmath} % for math symbols and environments
+
+\begin{document}
+
+The equation for horizontal motion in x-directoin is given by:
+\begin{equation}
+x(t) = \beta_{x, 1} e^{\alpha t} + \beta_{x, 2} e^{-\alpha t} + p_x(t)
+\end{equation}
+where
+\begin{align*}
+    \beta_{x, 1} &= \frac{(x_0 - p_{0, x})}{2} + \frac{\dot{x}_0 T - (p_{T, x} - p_{0, x})}{2 \alpha T}, \\
+    \beta_{x, 2} &= \frac{(x_0 - p_{0, x})}{2} - \frac{\dot{x}_0 T - (p_{T, x} - p_{0, x})}{2 \alpha T}, \\
+    \alpha &= \sqrt{\frac{g}{h}}.
+\end{align*}
+
+\end{document}

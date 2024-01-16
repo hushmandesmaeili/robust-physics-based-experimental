@@ -21,7 +21,7 @@ z_expr = z_expr.subs({d1: d1_expr, d2: d2_expr, omega: omega_expr})
 print(z_expr)
 
 # Convert the symbolic expression to a function
-z_func = sp.lambdify((t, z(t), z.diff(t)), z_expr, 'numpy')
+z_func = sp.lambdify((t, z0, r0, g, k, m, zdot0, rT, T), z_expr, 'numpy')
 
 # Generate time values for plotting
 time_values = np.linspace(0, 10, 1000)
@@ -37,7 +37,7 @@ rT_val = 0.8
 T_val = 2.0
 
 # Evaluate the function for the given parameter values
-z_values = z_func(time_values, z0=z0_val, r0=r0_val, g=g_val, k=k_val, m=m_val, zdot=zdot_val, rT=rT_val, T=T_val)
+z_values = z_func(time_values, z0=z0_val, r0=r0_val, g=g_val, k=k_val, m=m_val, zdot0=zdot_val, rT=rT_val, T=T_val)
 
 # Plot the function
 plt.plot(time_values, z_values)
