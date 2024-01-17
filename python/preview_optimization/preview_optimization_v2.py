@@ -9,7 +9,7 @@ def compute_r(t, T, r_0, r_T):
     r = (t/T)*(r_T - r_0) + r_0
     return r
 
-def stance_dynamics(t, T, alpha_freq, alpha_0, alpha_dot_0, alpha_ddot, d1, d2, x_0, y_0, z_0, p_0_x, p_0_y, p_T_x, p_T_y, r_0, r_T, x_dot_0, y_dot_0, Omega_R=0, Omega_L=0):
+def stance_dynamics(t, T, alpha_freq, alpha_0, alpha_dot_0, alpha_ddot, d1, d2, x_0, y_0, z_0, p_0_x, p_0_y, p_T_x, p_T_y, r_0, r_T, x_dot_0, y_dot_0, z_dot_0, Omega_R=0, Omega_L=0):
     p = compute_p(t, T, [p_0_x, p_0_y], [p_T_x, p_T_y])
     r = compute_r(t, T, r_0, r_T)
 
@@ -20,6 +20,9 @@ def stance_dynamics(t, T, alpha_freq, alpha_0, alpha_dot_0, alpha_ddot, d1, d2, 
 
     x_stance = beta_x_1*exp(alpha_freq*t) + beta_x_2*exp(-alpha_freq*t) + p[0]
     y_stance = beta_y_1*exp(alpha_freq*t) + beta_y_2*exp(-alpha_freq*t) + p[1]
+   
+    d1 = z_0 - r_0 + g/omega**2
+    d2 = z_dot_0/omega - (r_T - r_0)/(T*omega)
     z_stance = d1*cos(omega*t) + d2*sin(omega*t) + r + (g/omega**2)
 
     c_stance = Matrix([x_stance, y_stance, z_stance])
