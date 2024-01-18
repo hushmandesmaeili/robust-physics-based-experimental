@@ -1,6 +1,7 @@
 # plant.py
 from state_vector import StateVector
 from control_input import ControlInput
+from symbolic_trajectory import SymbolicTrajectory
 from sympy import symbols, Matrix, exp, cos, sin, sqrt, diff
 
 
@@ -58,7 +59,7 @@ class Plant:
         - h_initial (float): Initial height at beginning of phase.
 
         Returns:
-        - StateVector: New state vector after stance dynamics.
+        SymbolicTrajectory: New symbolic state trajectory after stance dynamics.
         """
         # t = symbols('t')  # Define symbolic time variable
 
@@ -106,25 +107,21 @@ class Plant:
         d2 = z_dot_0/omega - (r_T - r_0)/(T_duration*omega)
         z_stance = d1 * cos(omega*t) + d2 * sin(omega*t) + r + (g/omega**2)
 
-        c_stance = Matrix([x_stance, y_stance, z_stance])
+        # c_stance = Matrix([x_stance, y_stance, z_stance])
 
         x_dot_stance = diff(x_stance, t)
         y_dot_stance = diff(y_stance, t)
         z_dot_stance = diff(z_stance, t)
 
-        c_dot_stance = Matrix([x_dot_stance, y_dot_stance, z_dot_stance])
+        # c_dot_stance = Matrix([x_dot_stance, y_dot_stance, z_dot_stance])
 
         alpha_stance = alpha_0 + alpha_dot_0 * t + (1/2) * alpha_ddot[2] * t**2
 
         alpha_dot_stance = alpha_dot_0 + alpha_ddot[2] * t  # hard-coded, faster than diff(alpha_stance, t)
 
-        # Append everything into a single vector
-        # state_vector = Matrix([c_stance[0], c_stance[1], c_stance[2], c_dot_stance[0], c_dot_stance[1], c_dot_stance[2], alpha_stance, alpha_dot_stance, Omega_R, Omega_L])
-
-        new_state_vector = StateVector(c_stance[0], c_stance[1], c_stance[2], 
-                                       c_dot_stance[0], c_dot_stance[1], c_dot_stance[2], 
-                                       alpha_stance, alpha_dot_stance, Omega_R, Omega_L)
-        return new_state_vector
+        # Return an instance of SymbolicTrajectory
+        return SymbolicTrajectory(x_stance, y_stance, z_stance, x_dot_stance, y_dot_stance, z_dot_stance, 
+                                  alpha_stance, alpha_dot_stance, Omega_R, Omega_L)
 
     def flight_dynamics(self, t, current_state, control_input):
         """
@@ -136,7 +133,7 @@ class Plant:
         - control_input (ControlInput): Control input parameters.
 
         Returns:
-        - StateVector: New state vector after flight dynamics.
+        - SymbolicTrajectory: New symbolic state trajectory after flight dynamics.
         """
 
         g = self._g
@@ -167,13 +164,6 @@ class Plant:
 
         alpha_flight_dot = alpha_dot_0
 
-        # # Append everything into a single vector
-        # state_vector = Matrix([c_flight[0], c_flight[1], c_flight[2], 
-        #                        c_dot_flight[0], c_dot_flight[1], c_dot_flight[2], 
-        #                        alpha_flight, alpha_flight_dot, 0, 0])
-        
-        new_state_vector = StateVector(c_flight[0], c_flight[1], c_flight[2], 
-                                        c_dot_flight[0], c_dot_flight[1], c_dot_flight[2], 
-                                        alpha_flight, alpha_flight_dot, 0, 0)
-
-        return new_state_vector
+        # Return an instance of SymbolicTrajectory
+        return SymbolicTrajectory(c_flight[0], c_flight[1], c_flight[2], c_dot_flight[0], c_dot_flight[1], c_dot_flight[2], 
+                                  alpha_flight, alpha_flight_dot, 0, 0)
