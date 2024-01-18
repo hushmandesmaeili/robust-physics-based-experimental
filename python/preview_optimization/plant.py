@@ -6,13 +6,13 @@ from sympy import symbols, Matrix, exp, cos, sin, sqrt, diff
 
 
 class Plant:
-    def __init__(self, plant_parameters):
+    def __init__(self, plant_parameters=0):
         # Initialization logic
-        _g = 9.81
-        _k = 1.0
-        _m = 10.0
+        self._g = 9.81
+        self._k = 1.0
+        self._m = 1.0
 
-    def _compute_p(t, T, p_0, p_T):
+    def _compute_p(self, t, T, p_0, p_T):
         """
         Compute the time-varying COP vector p(t).
 
@@ -30,7 +30,7 @@ class Plant:
         
         return Matrix([p_x, p_y])
 
-    def _compute_r(t, T, r_0, r_T):
+    def _compute_r(self, t, T, r_0, r_T):
         """
         Compute the time-varying rest length r(t).
 
@@ -105,7 +105,7 @@ class Plant:
         
         d1 = z_0 - r_0 + g/omega**2
         d2 = z_dot_0/omega - (r_T - r_0)/(T_duration*omega)
-        z_stance = d1 * cos(omega*t) + d2 * sin(omega*t) + r + (g/omega**2)
+        z_stance = d1 * cos(omega*t) + d2 * sin(omega*t) + r - (g/omega**2)
 
         # c_stance = Matrix([x_stance, y_stance, z_stance])
 
