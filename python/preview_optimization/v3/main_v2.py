@@ -1,3 +1,4 @@
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import numpy as np
 import sympy as sp
 import matplotlib.pyplot as plt
@@ -11,6 +12,7 @@ import cma
 import numpy as np
 import sympy as sp
 from sympy import lambdify
+import time
 
 # Define initial state, s_0
 c_0 = [0, 0, 1.7]
@@ -24,35 +26,33 @@ alpha_d = 0  # Desired pelvis heading
 h_d = 0  # Desired COM height
 L_r = 1.0  # Nominal leg length
 
-t = sp.symbols('t')  # Define 't' explicitly as a symbolic variable
+# #Define symbolic variables for initial state s_0 and control parameters U
+# c_0_x, c_0_y, c_0_z = sp.symbols('c_0_x c_0_y c_0_z')
+# c_dot_0_x, c_dot_0_y, c_dot_0_z = sp.symbols('c_dot_0_x c_dot_0_y c_dot_0_z')
+# alpha, alpha_dot = sp.symbols('alpha_0 alpha_dot_0')
+# omega_R, omega_L = sp.symbols('omega_R omega_L')
 
-#Define symbolic variables for initial state s_0 and control parameters U
-c_0_x, c_0_y, c_0_z = sp.symbols('c_0_x c_0_y c_0_z')
-c_dot_0_x, c_dot_0_y, c_dot_0_z = sp.symbols('c_dot_0_x c_dot_0_y c_dot_0_z')
-alpha, alpha_dot = sp.symbols('alpha_0 alpha_dot_0')
-omega_R, omega_L = sp.symbols('omega_R omega_L')
-
-T_1, p_0_1_x, p_0_1_y, p_T_1_x, p_T_1_y, r_0_1, r_T_1, alpha_ddot_1 = sp.symbols('T_1 p_0_1_x p_0_1_y p_T_1_x p_T_1_y r_0_1 r_T_1 alpha_ddot_1')
-T_2, p_T_2_x, p_T_2_y, r_T_2, alpha_ddot_2 = sp.symbols('T_2 p_T_2_x p_T_2_y r_T_2 alpha_ddot_2')
-T_3 = sp.symbols('T_3')
-T_4, p_0_4_x, p_0_4_y, p_T_4_x, p_T_4_y, r_0_4, r_T_4, alpha_ddot_4 = sp.symbols('T_4 p_0_4_x p_0_4_y p_T_4_x p_T_4_y r_0_4 r_T_4 alpha_ddot_4')
-T_5, p_T_5_x, p_T_5_y, r_T_5, alpha_ddot_5 = sp.symbols('T_5 p_T_5_x p_T_5_y r_T_5 alpha_ddot_5')
-T_6 = sp.symbols('T_6')
-u_swing_x, u_swing_y = sp.symbols('u_swing_x u_swing_y')
-symbols = (
-    c_0_x, c_0_y, c_0_z,
-    c_dot_0_x, c_dot_0_y, c_dot_0_z,
-    alpha, alpha_dot,
-    omega_R, omega_L,
-    T_1, p_0_1_x, p_0_1_y, p_T_1_x, p_T_1_y, r_0_1, r_T_1, alpha_ddot_1,
-    T_2, p_T_2_x, p_T_2_y, r_T_2, alpha_ddot_2,
-    T_3,
-    T_4, p_0_4_x, p_0_4_y, p_T_4_x, p_T_4_y, r_0_4, r_T_4, alpha_ddot_4,
-    T_5, p_T_5_x, p_T_5_y, r_T_5, alpha_ddot_5,
-    T_6,
-    u_swing_x, u_swing_y, 
-    t
-)
+# T_1, p_0_1_x, p_0_1_y, p_T_1_x, p_T_1_y, r_0_1, r_T_1, alpha_ddot_1 = sp.symbols('T_1 p_0_1_x p_0_1_y p_T_1_x p_T_1_y r_0_1 r_T_1 alpha_ddot_1')
+# T_2, p_T_2_x, p_T_2_y, r_T_2, alpha_ddot_2 = sp.symbols('T_2 p_T_2_x p_T_2_y r_T_2 alpha_ddot_2')
+# T_3 = sp.symbols('T_3')
+# T_4, p_0_4_x, p_0_4_y, p_T_4_x, p_T_4_y, r_0_4, r_T_4, alpha_ddot_4 = sp.symbols('T_4 p_0_4_x p_0_4_y p_T_4_x p_T_4_y r_0_4 r_T_4 alpha_ddot_4')
+# T_5, p_T_5_x, p_T_5_y, r_T_5, alpha_ddot_5 = sp.symbols('T_5 p_T_5_x p_T_5_y r_T_5 alpha_ddot_5')
+# T_6 = sp.symbols('T_6')
+# u_swing_x, u_swing_y = sp.symbols('u_swing_x u_swing_y')
+# symbols = (
+#     c_0_x, c_0_y, c_0_z,
+#     c_dot_0_x, c_dot_0_y, c_dot_0_z,
+#     alpha, alpha_dot,
+#     omega_R, omega_L,
+#     T_1, p_0_1_x, p_0_1_y, p_T_1_x, p_T_1_y, r_0_1, r_T_1, alpha_ddot_1,
+#     T_2, p_T_2_x, p_T_2_y, r_T_2, alpha_ddot_2,
+#     T_3,
+#     T_4, p_0_4_x, p_0_4_y, p_T_4_x, p_T_4_y, r_0_4, r_T_4, alpha_ddot_4,
+#     T_5, p_T_5_x, p_T_5_y, r_T_5, alpha_ddot_5,
+#     T_6,
+#     u_swing_x, u_swing_y, 
+#     t
+# )
 
 # # Assume your symbolic expressions are defined globally or passed as parameters
 # # For demonstration, let's assume a symbolic expression 'poly' for one segment
@@ -74,23 +74,30 @@ symbols = (
 
 
 w_steptime = 10
-w_stepdist = 10
-w_heading = 1
+w_stepdist = 0
+w_heading = 0
 w_com = 0
-w_accel = 0.05
+w_accel = 0.0
 w_leg = 10
 w_hip = 10
 
 preview_locomotion = PreviewLocomotion()
 
-def objective_function(U, lambdified_preview_schedule):
+def objective_function(U):
     # # Convert U to PreviewControl object
     preview_control = convert_U_to_preview_control(U)
 
     # # Generate the preview
-    # preview_schedule = preview_locomotion.generate_multi_phase_preview(s_0, preview_control)
+    start_time = time.time()  # Capture start time
+
+    preview_schedule = preview_locomotion.generate_multi_phase_preview(s_0, preview_control)
+
+    end_time = time.time()  # Capture end time
+    duration = end_time - start_time  # Calculate the duration
+
+    print(f"The generate_multi_phase_preview() function took {duration} seconds to complete.")
     #Generate numerical preview
-    preview_schedule = evaluate_preview_schedule_control(lambdified_preview_schedule, s_0, preview_control, t)
+    # preview_schedule = evaluate_preview_schedule_control(lambdified_preview_schedule, s_0, preview_control, t)
 
     # Step duration objective
     T_A = preview_control.params[0].duration + preview_control.params[1].duration + preview_control.params[2].duration
@@ -125,38 +132,75 @@ def objective_function(U, lambdified_preview_schedule):
     g_com = (h_epsilon - h_d)**2
 
 
-    # COM acceleration objective
-    g_accel_x_total = sum(integrate_acceleration_squared(segment) for segment in preview_schedule.x_segments)
-    g_accel_y_total = sum(integrate_acceleration_squared(segment) for segment in preview_schedule.y_segments)
-    g_accel_z_total = sum(integrate_acceleration_squared(segment) for segment in preview_schedule.z_segments)
+    # # COM acceleration objective
+    # g_accel_x_total = sum(integrate_acceleration(segment) for segment in preview_schedule.x_segments)
+    # g_accel_y_total = sum(integrate_acceleration(segment) for segment in preview_schedule.y_segments)
+    # g_accel_z_total = sum(integrate_acceleration(segment) for segment in preview_schedule.z_segments)
 
-    # Total COM acceleration modeling objective for all three dimensions
-    g_accel_total = g_accel_x_total + g_accel_y_total + g_accel_z_total
+    # # Total COM acceleration modeling objective for all three dimensions
+    # g_accel_total = g_accel_x_total + g_accel_y_total + g_accel_z_total
+    
+    start_time_g_accel = time.time()  # Capture start time for g_accel_total
 
+    g_accel_total = compute_acceleration_concurrently(preview_schedule)
+
+    end_time_g_accel = time.time()  # Capture end time for g_accel_total
+    duration_g_accel = end_time_g_accel - start_time_g_accel  # Calculate the duration for g_accel_total
+    print(f"The compute_acceleration_concurrently() function took {duration_g_accel} seconds to complete.")
 
     # Leg length objective
     # TODO: Implement leg length objective
 
-    objective = w_steptime * g_steptime + w_stepdist * g_stepdist + w_heading * g_heading + w_com * g_com + w_accel * g_accel_total 
+    objective = w_steptime * g_steptime + w_stepdist * g_stepdist + w_heading * g_heading #+ w_com * g_com + w_accel * g_accel_total 
+    print(f"Total cost is {objective}.")
+
+    end_time = time.time()  # Capture end time
+    duration = end_time - start_time  # Calculate the duration
+
+    print(f"The objective function took {duration} seconds to complete.")
 
     return objective
 
-def generate_symbolic_multiphase_preview():
-    U = [T_1, p_0_1_x, p_0_1_y, p_T_1_x, p_T_1_y, r_0_1, r_T_1, alpha_ddot_1,
-            T_2, p_T_2_x, p_T_2_y, r_T_2, alpha_ddot_2,
-            T_3,
-            T_4, p_0_4_x, p_0_4_y, p_T_4_x, p_T_4_y, r_0_4, r_T_4, alpha_ddot_4,
-            T_5, p_T_5_x, p_T_5_y, r_T_5, alpha_ddot_5,
-            T_6,
-            u_swing_x, u_swing_y]
+
+def compute_total_acceleration(segments):
+    # Function to compute total acceleration for a list of segments
+    with ProcessPoolExecutor() as executor:
+        futures = [executor.submit(integrate_acceleration, segment) for segment in segments]
+        results = [future.result() for future in as_completed(futures)]
+    return sum(results)
+
+# Function to concurrently compute the acceleration for x, y, z segments
+def compute_acceleration_concurrently(preview_schedule):
+    with ProcessPoolExecutor() as executor:
+        # Create futures for each dimension
+        future_x = executor.submit(compute_total_acceleration, preview_schedule.x_segments)
+        future_y = executor.submit(compute_total_acceleration, preview_schedule.y_segments)
+        future_z = executor.submit(compute_total_acceleration, preview_schedule.z_segments)
+        
+        # Wait for all futures to complete and sum their results
+        g_accel_x_total = future_x.result()
+        g_accel_y_total = future_y.result()
+        g_accel_z_total = future_z.result()
+
+    # Sum the totals from each dimension
+    g_accel_total = g_accel_x_total + g_accel_y_total + g_accel_z_total
+    return g_accel_total
+# def generate_symbolic_multiphase_preview():
+#     U = [T_1, p_0_1_x, p_0_1_y, p_T_1_x, p_T_1_y, r_0_1, r_T_1, alpha_ddot_1,
+#             T_2, p_T_2_x, p_T_2_y, r_T_2, alpha_ddot_2,
+#             T_3,
+#             T_4, p_0_4_x, p_0_4_y, p_T_4_x, p_T_4_y, r_0_4, r_T_4, alpha_ddot_4,
+#             T_5, p_T_5_x, p_T_5_y, r_T_5, alpha_ddot_5,
+#             T_6,
+#             u_swing_x, u_swing_y]
     
-    # Convert U to PreviewControl object
-    preview_control = convert_U_to_preview_control(U)
+#     # Convert U to PreviewControl object
+#     preview_control = convert_U_to_preview_control(U)
 
-    # Generate the preview
-    preview_schedule = preview_locomotion.generate_multi_phase_preview(s_0, preview_control)
+#     # Generate the preview
+#     preview_schedule = preview_locomotion.generate_multi_phase_preview(s_0, preview_control)
 
-    return preview_schedule
+#     return preview_schedule
 
 # def evaluate_preview_schedule_control(symbolic_preview_schedule: PiecewisePolynomial, initial_state: State, control: PreviewControl):
 #     # Generate the preview
@@ -183,85 +227,85 @@ def generate_symbolic_multiphase_preview():
 
 #     return preview_schedule_eval
 
-def evaluate_preview_schedule_control(preview_schedule_lambdified , initial_state: State, control: PreviewControl, t_value):
-    numerical_values = (
-        initial_state.c[0], initial_state.c[1], initial_state.c[2],
-        initial_state.c_dot[0], initial_state.c_dot[1], initial_state.c_dot[2],
-        initial_state.alpha, initial_state.alpha_dot,
-        0, 0,
-        control.params[0].duration, control.params[0].p_0[0], control.params[0].p_0[1], control.params[0].p_T[0], control.params[0].p_T[1], 
-        control.params[0].r_0, control.params[0].r_T, control.params[0].alpha_ddot,
-        control.params[1].duration, control.params[1].p_T[0], control.params[1].p_T[1], control.params[1].r_T, control.params[1].alpha_ddot,
-        control.params[2].duration,
-        control.params[3].duration, control.params[3].p_0[0], control.params[3].p_0[1], control.params[3].p_T[0], control.params[3].p_T[1],
-        control.params[3].r_0, control.params[3].r_T, control.params[3].alpha_ddot,
-        control.params[4].duration, control.params[4].p_T[0], control.params[4].p_T[1], control.params[4].r_T, control.params[4].alpha_ddot,
-        control.params[5].duration,
-        0, 0
-    )
+# def evaluate_preview_schedule_control(preview_schedule_lambdified , initial_state: State, control: PreviewControl, t_value):
+#     numerical_values = (
+#         initial_state.c[0], initial_state.c[1], initial_state.c[2],
+#         initial_state.c_dot[0], initial_state.c_dot[1], initial_state.c_dot[2],
+#         initial_state.alpha, initial_state.alpha_dot,
+#         0, 0,
+#         control.params[0].duration, control.params[0].p_0[0], control.params[0].p_0[1], control.params[0].p_T[0], control.params[0].p_T[1], 
+#         control.params[0].r_0, control.params[0].r_T, control.params[0].alpha_ddot,
+#         control.params[1].duration, control.params[1].p_T[0], control.params[1].p_T[1], control.params[1].r_T, control.params[1].alpha_ddot,
+#         control.params[2].duration,
+#         control.params[3].duration, control.params[3].p_0[0], control.params[3].p_0[1], control.params[3].p_T[0], control.params[3].p_T[1],
+#         control.params[3].r_0, control.params[3].r_T, control.params[3].alpha_ddot,
+#         control.params[4].duration, control.params[4].p_T[0], control.params[4].p_T[1], control.params[4].r_T, control.params[4].alpha_ddot,
+#         control.params[5].duration,
+#         0, 0
+#     )
     
-    evaluated_preview_schedule = PiecewisePolynomial()
+#     evaluated_preview_schedule = PiecewisePolynomial()
 
-    # Adjust the loop to call lambdified functions with 't_value'
-    for segment_type, lambdified_segments in preview_schedule_lambdified.items():
-        evaluated_segments = []
-        for lambdified_segment in lambdified_segments:
-            # Append 't_value' to 'numerical_values' for each function call
-            evaluated_polynomial = lambdified_segment['polynomial'](*(numerical_values + (t_value,)))
-            evaluated_start_time = lambdified_segment['start_time'](*(numerical_values + (t_value,)))
-            evaluated_end_time = lambdified_segment['end_time'](*(numerical_values + (t_value,)))
-            evaluated_initial_value = lambdified_segment['initial_value'](*(numerical_values + (t_value,)))
-            evaluated_final_value = lambdified_segment['final_value'](*(numerical_values + (t_value,)))
+#     # Adjust the loop to call lambdified functions with 't_value'
+#     for segment_type, lambdified_segments in preview_schedule_lambdified.items():
+#         evaluated_segments = []
+#         for lambdified_segment in lambdified_segments:
+#             # Append 't_value' to 'numerical_values' for each function call
+#             evaluated_polynomial = lambdified_segment['polynomial'](*(numerical_values + (t_value,)))
+#             evaluated_start_time = lambdified_segment['start_time'](*(numerical_values + (t_value,)))
+#             evaluated_end_time = lambdified_segment['end_time'](*(numerical_values + (t_value,)))
+#             evaluated_initial_value = lambdified_segment['initial_value'](*(numerical_values + (t_value,)))
+#             evaluated_final_value = lambdified_segment['final_value'](*(numerical_values + (t_value,)))
             
-            # Construct and append evaluated segment
-            evaluated_segment = {
-                'polynomial': evaluated_polynomial,
-                'start_time': evaluated_start_time,
-                'end_time': evaluated_end_time,
-                'initial_value': evaluated_initial_value,
-                'final_value': evaluated_final_value
-            }
-            evaluated_segments.append(evaluated_segment)
+#             # Construct and append evaluated segment
+#             evaluated_segment = {
+#                 'polynomial': evaluated_polynomial,
+#                 'start_time': evaluated_start_time,
+#                 'end_time': evaluated_end_time,
+#                 'initial_value': evaluated_initial_value,
+#                 'final_value': evaluated_final_value
+#             }
+#             evaluated_segments.append(evaluated_segment)
         
-        setattr(evaluated_preview_schedule, segment_type, evaluated_segments)
+#         setattr(evaluated_preview_schedule, segment_type, evaluated_segments)
 
-    return evaluated_preview_schedule
+#     return evaluated_preview_schedule
 
-def lambdify_all_segments(piecewisePolynomial, symbols):
-    lambdified_segments = {
-        'x': [],
-        'y': [],
-        'z': [],
-        'alpha': [],
-        'xdot': [],
-        'ydot': [],
-        'zdot': [],
-        'alpha_dot': []
-    }
+# def lambdify_all_segments(piecewisePolynomial, symbols):
+#     lambdified_segments = {
+#         'x': [],
+#         'y': [],
+#         'z': [],
+#         'alpha': [],
+#         'xdot': [],
+#         'ydot': [],
+#         'zdot': [],
+#         'alpha_dot': []
+#     }
 
-    for attribute, segments in lambdified_segments.items():
-        for segment in getattr(piecewisePolynomial, f"{attribute}_segments"):
-            lambdified = lambdify_segment(segment, symbols)
-            segments.append(lambdified)
+#     for attribute, segments in lambdified_segments.items():
+#         for segment in getattr(piecewisePolynomial, f"{attribute}_segments"):
+#             lambdified = lambdify_segment(segment, symbols)
+#             segments.append(lambdified)
 
-    return lambdified_segments
+#     return lambdified_segments
 
 
-def lambdify_segment(segment, symbols):
-    """
-    Converts the symbolic expressions of a PiecewisePolynomialSegment to numerical functions.
+# def lambdify_segment(segment, symbols):
+#     """
+#     Converts the symbolic expressions of a PiecewisePolynomialSegment to numerical functions.
 
-    :param segment: A PiecewisePolynomialSegment object.
-    :param symbols: The symbolic variables in the expressions.
-    :return: A dictionary of lambdified functions.
-    """
-    return {
-        'polynomial': lambdify(symbols, segment.polynomial, modules=['numpy']),
-        'start_time': lambdify(symbols, segment.start_time, modules=['numpy']),
-        'end_time': lambdify(symbols, segment.end_time, modules=['numpy']),
-        'initial_value': lambdify(symbols, segment.initial_value, modules=['numpy']),
-        'final_value': lambdify(symbols, segment.final_value, modules=['numpy'])
-    }
+#     :param segment: A PiecewisePolynomialSegment object.
+#     :param symbols: The symbolic variables in the expressions.
+#     :return: A dictionary of lambdified functions.
+#     """
+#     return {
+#         'polynomial': lambdify(symbols, segment.polynomial, modules=['numpy']),
+#         'start_time': lambdify(symbols, segment.start_time, modules=['numpy']),
+#         'end_time': lambdify(symbols, segment.end_time, modules=['numpy']),
+#         'initial_value': lambdify(symbols, segment.initial_value, modules=['numpy']),
+#         'final_value': lambdify(symbols, segment.final_value, modules=['numpy'])
+#     }
 
 
 # def evaluate_piecewise_polynomial_segment(segments, initial_state: State, control: PreviewControl):
@@ -355,11 +399,11 @@ def lambdify_segment(segment, symbols):
  
 
 # Example function to calculate the integral of squared acceleration for a segment
-def integrate_acceleration_squared(segment):
+def integrate_acceleration(segment):
     t = sp.symbols('t')
     # Assuming segment.polynomial is a sympy expression
     acceleration = sp.diff(segment.polynomial, t, t)  # Second derivative for acceleration
-    squared_acceleration = acceleration**2
+    squared_acceleration = acceleration
     integral_result = sp.integrate(squared_acceleration, (t, segment.start_time, segment.end_time))
     return integral_result
 
@@ -419,141 +463,62 @@ def convert_U_to_preview_control(U):
 
 
 def main():
-    preview_schedule_sym = generate_symbolic_multiphase_preview()
-    # Log message: Preview schedule generated
-    print("Preview schedule generated")
-
-    # Print symbolic trajectory and initial/final times and values for all components
-    print("x trajectory for each phase")
-    for segment in preview_schedule_sym.x_segments[0:1]:
-        print("Polynomial:", segment.polynomial)
-        # print("Start Time:", segment.start_time)
-        # print("End Time:", segment.end_time)
-        # print("Initial Value:", segment.initial_value)
-        # print("Final Value:", segment.final_value)
-        print()
-
-    # print("y trajectory for each phase")
-    # for segment in preview_schedule_sym.y_segments:
-    #     print("Polynomial:", segment.polynomial)
-    #     print("Start Time:", segment.start_time)
-    #     print("End Time:", segment.end_time)
-    #     print("Initial Value:", segment.initial_value)
-    #     print("Final Value:", segment.final_value)
-    #     print()
-
-    # print("z trajectory for each phase")
-    # for segment in preview_schedule_sym.z_segments:
-    #     print("Polynomial:", segment.polynomial)
-    #     print("Start Time:", segment.start_time)
-    #     print("End Time:", segment.end_time)
-    #     print("Initial Value:", segment.initial_value)
-    #     print("Final Value:", segment.final_value)
-    #     print()
-
-    # print("alpha trajectory for each phase")
-    # for segment in preview_schedule_sym.alpha_segments:
-    #     print("Polynomial:", segment.polynomial)
-    #     print("Start Time:", segment.start_time)
-    #     print("End Time:", segment.end_time)
-    #     print("Initial Value:", segment.initial_value)
-    #     print("Final Value:", segment.final_value)
-    #     print()
-
-    # print("xdot trajectory for each phase")
-    # for segment in preview_schedule_sym.xdot_segments:
-    #     print("Polynomial:", segment.polynomial)
-    #     print("Start Time:", segment.start_time)
-    #     print("End Time:", segment.end_time)
-    #     print("Initial Value:", segment.initial_value)
-    #     print("Final Value:", segment.final_value)
-    #     print()
-
-    # print("ydot trajectory for each phase")
-    # for segment in preview_schedule_sym.ydot_segments:
-    #     print("Polynomial:", segment.polynomial)
-    #     print("Start Time:", segment.start_time)
-    #     print("End Time:", segment.end_time)
-    #     print("Initial Value:", segment.initial_value)
-    #     print("Final Value:", segment.final_value)
-    #     print()
-
-    # print("zdot trajectory for each phase")
-    # for segment in preview_schedule_sym.zdot_segments:
-    #     print("Polynomial:", segment.polynomial)
-    #     print("Start Time:", segment.start_time)
-    #     print("End Time:", segment.end_time)
-    #     print("Initial Value:", segment.initial_value)
-    #     print("Final Value:", segment.final_value)
-    #     print()
-
-    # print("alpha_dot trajectory for each phase")
-    # for segment in preview_schedule_sym.alpha_dot_segments:
-    #     print("Polynomial:", segment.polynomial)
-    #     print("Start Time:", segment.start_time)
-    #     print("End Time:", segment.end_time)
-    #     print("Initial Value:", segment.initial_value)
-    #     print("Final Value:", segment.final_value)
-    #     print()
-
+    # preview_schedule_sym = generate_symbolic_multiphase_preview()
+    
     # lambdified_preview_schedule = lambdify_all_segments(preview_schedule_sym, symbols)
-    # # Log message: Preview schedule lambdified
-    # print("Preview schedule lambdified")
-
-    # # Log message: Setup complete
-    # print("Setup complete")
+   
 
     # # Define control input, u
 
-    # # Initial guess for U
-    # # U = [u_1 u_2 u_3 u_4 u_5 u_6 u_swing]
-    # #
-    # #   = [T_1  ,  p_{0,1}     ,   p_{T,1/0,2} ,  r_{0,1}     ,   r_{T,1/0,2} ,  alpha_ddot_1
-    # #      T_2  ,  p_{T,1/0,2} ,   p_{T,2}     ,  r_{T,1/0,2} ,   r_{T,2}     ,  alpha_ddot_2
-    # #      T_3  ,
-    # #      T_4  ,  p_{0,4}     ,   p_{T,4/0,5} ,  r_{0,4}     ,   r_{T,4/0,5} ,  alpha_ddot_4
-    # #      T_5  ,  p_{T,4/0,5} ,   p_{T,5}     ,  r_{T,4/0,5} ,   r_{T,5}     ,  alpha_ddot_5
-    # #      T_6  ,
-    # #      u_swing]
-    # T_1, p_0_1_x, p_0_1_y, p_T_1_x, p_T_1_y, r_0_1, r_T_1, alpha_ddot_1 = 0.3, 0.3, 0, 0.70, 0, 1.3, 1.3, 0
-    # T_2, p_T_2_x, p_T_2_y, r_T_2, alpha_ddot_2 = 0.3, 0.9, 0, 1.3, 0
-    # T_3 = 0.3
-    # T_4, p_0_4_x, p_0_4_y, p_T_4_x, p_T_4_y, r_0_4, r_T_4, alpha_ddot_4 = 0.3, 1.4, 0, 1.8, 0, 1.3, 1.3, 0
-    # T_5, p_T_5_x, p_T_5_y, r_T_5, alpha_ddot_5 = 0.3, 2.0, 0, 1.3, 0
-    # T_6 = 0.3
-    # u_swing_x, u_swing_y = 1.4, 0
+    # Initial guess for U
+    # U = [u_1 u_2 u_3 u_4 u_5 u_6 u_swing]
+    #
+    #   = [T_1  ,  p_{0,1}     ,   p_{T,1/0,2} ,  r_{0,1}     ,   r_{T,1/0,2} ,  alpha_ddot_1
+    #      T_2  ,  p_{T,1/0,2} ,   p_{T,2}     ,  r_{T,1/0,2} ,   r_{T,2}     ,  alpha_ddot_2
+    #      T_3  ,
+    #      T_4  ,  p_{0,4}     ,   p_{T,4/0,5} ,  r_{0,4}     ,   r_{T,4/0,5} ,  alpha_ddot_4
+    #      T_5  ,  p_{T,4/0,5} ,   p_{T,5}     ,  r_{T,4/0,5} ,   r_{T,5}     ,  alpha_ddot_5
+    #      T_6  ,
+    #      u_swing]
+    T_1, p_0_1_x, p_0_1_y, p_T_1_x, p_T_1_y, r_0_1, r_T_1, alpha_ddot_1 = 0.3, 0.3, 0, 0.70, 0, 1.3, 1.3, 0
+    T_2, p_T_2_x, p_T_2_y, r_T_2, alpha_ddot_2 = 0.3, 0.9, 0, 1.3, 0
+    T_3 = 0.3
+    T_4, p_0_4_x, p_0_4_y, p_T_4_x, p_T_4_y, r_0_4, r_T_4, alpha_ddot_4 = 0.3, 1.4, 0, 1.8, 0, 1.3, 1.3, 0
+    T_5, p_T_5_x, p_T_5_y, r_T_5, alpha_ddot_5 = 0.3, 2.0, 0, 1.3, 0
+    T_6 = 0.3
+    u_swing_x, u_swing_y = 1.4, 0
 
-    # # 23 free parameters, some with x,y components
-    # U_initial = np.array([T_1, p_0_1_x, p_0_1_y, p_T_1_x, p_T_1_y, r_0_1, r_T_1, alpha_ddot_1, 
-    #                       T_2, p_T_2_x, p_T_2_y, r_T_2, alpha_ddot_2, 
-    #                       T_3, 
-    #                       T_4, p_0_4_x, p_0_4_y, p_T_4_x, p_T_4_y, r_0_4, r_T_4, alpha_ddot_4, 
-    #                       T_5, p_T_5_x, p_T_5_y, r_T_5, alpha_ddot_5, 
-    #                       T_6, 
-    #                       u_swing_x, u_swing_y])
+    # 23 free parameters, some with x,y components
+    U_initial = np.array([T_1, p_0_1_x, p_0_1_y, p_T_1_x, p_T_1_y, r_0_1, r_T_1, alpha_ddot_1, 
+                          T_2, p_T_2_x, p_T_2_y, r_T_2, alpha_ddot_2, 
+                          T_3, 
+                          T_4, p_0_4_x, p_0_4_y, p_T_4_x, p_T_4_y, r_0_4, r_T_4, alpha_ddot_4, 
+                          T_5, p_T_5_x, p_T_5_y, r_T_5, alpha_ddot_5, 
+                          T_6, 
+                          u_swing_x, u_swing_y])
 
-    # total_cost = objective_function(U_initial, lambdified_preview_schedule)
+    # total_cost = objective_function(U_initial)
 
-    # # print("Total cost: ", total_cost)
+    # print("Total cost: ", total_cost)
 
     # U_initial = np.zeros(30)  # 23 free parameters, some with x,y components
 
-    # # Initial standard deviation
-    # sigma = 0.5
+    # Initial standard deviation
+    sigma = 0.5
 
-    # # Set up the optimization options, e.g., maximum number of iterations, population size.
-    # options = {
-    # 'maxfevals': 5,
-    # 'popsize': 15,
-    # 'verb_disp': 1,  # Controls frequency of displayed information (1 for every iteration)
-    # 'verb_log': 1,   # Controls logging frequency to files (1 for every iteration)
-    # 'verb_time': False  # Can be set to True to display timing information
-    # }   
+    # Set up the optimization options, e.g., maximum number of iterations, population size.
+    options = {
+    'maxfevals': 5,
+    'popsize': 15,
+    'verb_disp': 1,  # Controls frequency of displayed information (1 for every iteration)
+    'verb_log': 1,   # Controls logging frequency to files (1 for every iteration)
+    'verb_time': False  # Can be set to True to display timing information
+    }   
 
-    # # Run the CMA optimization
-    # es = cma.CMAEvolutionStrategy(U_initial, sigma, options)
-    # U_star = es.optimize(objective_function(preview_schedule_sym)).result.xbest
-    # print("U_star: ", U_star)
+    # Run the CMA optimization
+    es = cma.CMAEvolutionStrategy(U_initial, sigma, options)
+    U_star = es.optimize(objective_function).result.xbest
+    print("U_star: ", U_star)
 
 if __name__ == "__main__":
     main()
