@@ -1,30 +1,28 @@
 import numpy as np
 from com_trajectory_plotter import COMTrajectoryPlotter
 from preview_optimization import PreviewOptimization, UserParameters
-from state import ReducedBodyState, ReducedBodyTrajectory
-from preview_locomotion import PreviewControl, PreviewLocomotion, PreviewParams, TypeOfPhases
+from state import ReducedBodyState
+from preview_locomotion import PreviewLocomotion, PreviewControl, PreviewParams, TypeOfPhases
 
-# Define initial state, s_0
-c_0 = np.array([0.2, 0, 1.7])
-c_dot_0 = np.array([1.5, 0, 1.5])
-s_0 = ReducedBodyState(com_pos=c_0, com_vel=c_dot_0, angular_pos=0, angular_vel=0, time=0)
+def create_initial_preview_control():
+    # Define initial parameters for the PreviewControl object
+    T_1, p_0_1_x, p_0_1_y, p_T_1_x, p_T_1_y, r_0_1, r_T_1, angular_accel_1 = 0.3, 0.3, 0, 0.70, 0, 20.3, 500.3, 0
+    T_2, p_T_2_x, p_T_2_y, r_T_2, angular_accel_2 = 0.3, 0.9, 0, 20.3, 0
+    T_3 = 0.0
+    T_4, p_0_4_x, p_0_4_y, p_T_4_x, p_T_4_y, r_0_4, r_T_4, angular_accel_4 = 0.3, 1.4, 0, 1.8, 0, 20.3, 20.3, 0
+    T_5, p_T_5_x, p_T_5_y, r_T_5, angular_accel_5 = 0.3, 2.0, 0, 10.3, 0
+    T_6 = 0.0
+    u_swing_x, u_swing_y = 1.4, 0
 
-T_step = 0.6  # Desired step duration
-d_step = 0.75  # Desired step length
-d_direction = np.array([1,0,0])  # Desired direction of travel
-alpha_d = 0  # Desired pelvis heading
-h_d = 0  # Desired COM height
-L_r = 1.0  # Nominal leg length
-
-w_steptime = 10
-w_stepdist = 0
-w_heading = 0
-w_com = 0
-w_accel = 0.0
-w_leg = 10
-w_hip = 10
-
-def convert_U_to_preview_control(U):
+    # 23 free parameters, some with x,y components
+    U = np.array([T_1, p_0_1_x, p_0_1_y, p_T_1_x, p_T_1_y, r_0_1, r_T_1, angular_accel_1, 
+                          T_2, p_T_2_x, p_T_2_y, r_T_2, angular_accel_2, 
+                          T_3, 
+                          T_4, p_0_4_x, p_0_4_y, p_T_4_x, p_T_4_y, r_0_4, r_T_4, angular_accel_4, 
+                          T_5, p_T_5_x, p_T_5_y, r_T_5, angular_accel_5, 
+                          T_6, 
+                          u_swing_x, u_swing_y])
+    
     preview_control = PreviewControl()
 
     preview_param_ds_1 = PreviewParams()
@@ -77,50 +75,44 @@ def convert_U_to_preview_control(U):
     return preview_control
 
 def main():
-    T_1, p_0_1_x, p_0_1_y, p_T_1_x, p_T_1_y, r_0_1, r_T_1, angular_accel_1 = 0.3, 0.3, 0, 0.70, 0, 20.3, 500.3, 0
-    T_2, p_T_2_x, p_T_2_y, r_T_2, angular_accel_2 = 0.3, 0.9, 0, 20.3, 0
-    T_3 = 0.0
-    T_4, p_0_4_x, p_0_4_y, p_T_4_x, p_T_4_y, r_0_4, r_T_4, angular_accel_4 = 0.3, 1.4, 0, 1.8, 0, 20.3, 20.3, 0
-    T_5, p_T_5_x, p_T_5_y, r_T_5, angular_accel_5 = 0.3, 2.0, 0, 10.3, 0
-    T_6 = 0.0
-    u_swing_x, u_swing_y = 1.4, 0
+    # Define initial state
+    c_0 = np.array([0.2, 0, 1.7])
+    c_dot_0 = np.array([1.5, 0, 1.5])
+    s_0 = ReducedBodyState(com_pos=c_0, com_vel=c_dot_0, angular_pos=0, angular_vel=0, time=0)
 
-    # 23 free parameters, some with x,y components
-    U_initial = np.array([T_1, p_0_1_x, p_0_1_y, p_T_1_x, p_T_1_y, r_0_1, r_T_1, angular_accel_1, 
-                          T_2, p_T_2_x, p_T_2_y, r_T_2, angular_accel_2, 
-                          T_3, 
-                          T_4, p_0_4_x, p_0_4_y, p_T_4_x, p_T_4_y, r_0_4, r_T_4, angular_accel_4, 
-                          T_5, p_T_5_x, p_T_5_y, r_T_5, angular_accel_5, 
-                          T_6, 
-                          u_swing_x, u_swing_y])
-    
-    preview_control = convert_U_to_preview_control(U_initial)
+    # Define user parameters
+    T_step = 0.6
+    d_step = 0.75
+    d_direction = np.array([1, 0, 0])
+    alpha_d = 0
+    h_d = 0
+    L_r = 1.0
 
-    s_0.cop = preview_control.params[0].p_0
-    s_0.rest_length = preview_control.params[0].r_0
-    s_0.angular_acc = preview_control.params[0].angular_accel
-    s_0.com_acc = np.array([0, 0, 0])
-    s_0.time = 0
-    
-    preview_locomotion = PreviewLocomotion()
-
-    trajectory = ReducedBodyTrajectory()
-
-    preview_locomotion.multiphase_preview(trajectory, s_0, preview_control)
+    w_steptime = 10
+    w_stepdist = 0
+    w_heading = 0
+    w_com = 0
+    w_accel = 0.0
+    w_leg = 10
+    w_hip = 10
 
     user_params = UserParameters(T_step, d_step, d_direction, alpha_d, h_d, L_r, 
                                  w_steptime, w_stepdist, w_heading, w_com, w_accel, w_leg, w_hip)
 
-    preview_optimization = PreviewOptimization(preview_locomotion, user_params)
-    preview_optimization.update_initial_guess(U_initial)
-    preview_optimization.run_optimization()
+    # Initialize PreviewControl and PreviewLocomotion
+    preview_control_initial = create_initial_preview_control()
+    preview_locomotion = PreviewLocomotion()
 
-    # Generate optimal preview schedule, S*(t)
-    optimal_U = convert_U_to_preview_control(preview_optimization.optimal_U)
-    preview_locomotion.multiphase_preview(trajectory, s_0, optimal_U)
+    # Pass the initial PreviewControl object to PreviewOptimization for optimization
+    preview_optimization = PreviewOptimization(preview_locomotion, user_params)
+    preview_optimization.update_initial_guess(preview_control_initial)
+    optimized_preview_control = preview_optimization.run_optimization()
+
+    # Use the optimized PreviewControl object for locomotion
+    trajectory = preview_locomotion.multiphase_preview(s_0, optimized_preview_control)
 
     # Plot the 3D COM trajectory
-    com_trajectory_plotter = COMTrajectoryPlotter(trajectory, preview_control)
+    com_trajectory_plotter = COMTrajectoryPlotter(trajectory, optimized_preview_control)
     com_trajectory_plotter.plot_3d_com_trajectory()
 
 if __name__ == "__main__":
