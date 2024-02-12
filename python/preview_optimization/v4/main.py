@@ -1,6 +1,6 @@
 import numpy as np
 from com_trajectory_plotter import COMTrajectoryPlotter
-from preview_optimization import PreviewOptimization
+from preview_optimization import PreviewOptimization, UserParameters
 from state import ReducedBodyState, ReducedBodyTrajectory
 from preview_locomotion import PreviewControl, PreviewLocomotion, PreviewParams, TypeOfPhases
 
@@ -108,7 +108,16 @@ def main():
 
     preview_locomotion.multiphase_preview(trajectory, s_0, preview_control)
 
-    preview_optimization = PreviewOptimization(preview_control, w_steptime, w_stepdist, w_heading, w_com, w_accel, w_leg, w_hip)
+    user_params = UserParameters(T_step, d_step, d_direction, alpha_d, h_d, L_r, 
+                                 w_steptime, w_stepdist, w_heading, w_com, w_accel, w_leg, w_hip)
+
+    preview_optimization = PreviewOptimization(preview_locomotion, user_params)
+    preview_optimization.update_initial_guess(U_initial)
+    preview_optimization.run_optimization()
+
+    # Generate optimal preview schedule, S*(t)
+    optimal_U = convert_U_to_preview_control(preview_optimization.optimal_U)
+    preview_locomotion.multiphase_preview(trajectory, s_0, optimal_U)
 
     # Plot the 3D COM trajectory
     com_trajectory_plotter = COMTrajectoryPlotter(trajectory, preview_control)
